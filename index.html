@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hex Pipeline Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #1f1f24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text-primary: #f0f0f2;
+    --text-secondary: #8a8a9a;
+    --text-tertiary: #55556a;
+    --hex: #ff4d4d;
+    --hex-soft: rgba(255,77,77,0.12);
+    --c60: #a78bfa;
+    --c60-soft: rgba(167,139,250,0.12);
+    --c90: #f5a623;
+    --c90-soft: rgba(245,166,35,0.12);
+    --c26: #22c97a;
+    --c26-soft: rgba(34,201,122,0.12);
+    --c12: #7c6af7;
+    --c12-soft: rgba(124,106,247,0.12);
+    --gap: #ff4d4d;
+    --ok: #22c97a;
+    --warn: #f5a623;
+    --radius: 10px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    padding: 28px 24px;
+    min-height: 100vh;
+    font-size: 13px;
+  }
+
+  .header { margin-bottom: 24px; }
+  .header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); margin-bottom: 4px; }
+  .header p { font-size: 12px; color: var(--text-secondary); }
+
+  .tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 20px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: var(--radius);
+    width: fit-content;
+    border: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .tab {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    background: transparent;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active-60 { background: var(--c60-soft); color: var(--c60); }
+  .tab.active-90 { background: var(--c90-soft); color: var(--c90); }
+  .tab.active-26 { background: var(--c26-soft); color: var(--c26); }
+  .tab.active-12 { background: var(--c12-soft); color: var(--c12); }
+
+  .panel { display: none; animation: fadeIn 0.2s ease; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .context-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .context-card { border-radius: 8px; padding: 12px 14px; border: 1px solid var(--border); background: var(--surface); }
+  .context-label { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px; }
+  .context-stats { font-size: 11px; color: var(--text-secondary); line-height: 1.7; }
+
+  .bench-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+  }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+  th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .hex-val { font-weight: 600; color: var(--hex); font-family: 'DM Mono', monospace; font-size: 13px; }
+  .bench-val { font-weight: 500; font-family: 'DM Mono', monospace; font-size: 13px; }
+  .gap-bad { color: var(--gap); font-weight: 600; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .gap-ok { color: var(--ok); font-weight: 500; font-family: 'DM Mono', monospace; font-size: 12px; }
+
+  .crit-row td { background: rgba(255,77,77,0.06); }
+
+  .tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.03em; }
+  .tag-ok { background: rgba(34,201,122,0.15); color: var(--ok); }
+  .tag-warn { background: rgba(245,166,35,0.15); color: var(--warn); }
+  .tag-crit { background: rgba(255,77,77,0.15); color: var(--hex); }
+  .tag-strong { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .forecast-section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px; }
+
+  .target-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .target-row label { font-size: 12px; color: var(--text-secondary); }
+  .target-row input { width: 52px; padding: 5px 8px; font-size: 13px; font-family: 'DM Mono', monospace; text-align: center; border: 1px solid var(--border2); border-radius: 6px; background: var(--surface2); color: var(--text-primary); outline: none; }
+  .target-row input:focus { border-color: rgba(255,255,255,0.25); }
+  .target-row span { font-size: 12px; color: var(--text-tertiary); }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .card.hex-card { border-color: rgba(255,77,77,0.3); background: rgba(255,77,77,0.04); }
+  .card-label { font-size: 11px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; line-height: 1.4; }
+  .card-num { font-size: 34px; font-weight: 600; font-family: 'DM Mono', monospace; line-height: 1; letter-spacing: -0.02em; }
+  .card-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 5px; font-family: 'DM Mono', monospace; }
+
+  .note { margin-top: 14px; font-size: 12px; color: var(--text-secondary); padding: 10px 14px; border-left: 2px solid var(--warn); background: rgba(245,166,35,0.05); border-radius: 0 7px 7px 0; line-height: 1.6; }
+  .note strong { color: var(--text-primary); }
+
+  .footer { margin-top: 24px; font-size: 11px; color: var(--text-tertiary); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Hex · Pipeline Funnel Analysis</h1>
+  <p>Hex (60-day) compared against portfolio benchmarks · Data as of Apr 23, 2026</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active-60" onclick="switchTab('60', this)">Portfolio · Same 60 Days ★</button>
+  <button class="tab" onclick="switchTab('90', this)">Portfolio · 90 Days</button>
+  <button class="tab" onclick="switchTab('26', this)">Portfolio · 2026 YTD</button>
+  <button class="tab" onclick="switchTab('12', this)">Portfolio · 12 Months</button>
+</div>
+
+<!-- 60 DAY PANEL -->
+<div class="panel active" id="panel-60">
+  <div class="bench-label">Comparing <strong style="color:var(--hex)">Hex (60-day)</strong> against <strong style="color:var(--c60)">full portfolio — exact same 60-day window</strong> · Feb 23 – Apr 23, 2026 · Apples-to-apples</div>
+  <div class="context-row">
+    <div class="context-card" style="border-color:rgba(255,77,77,0.2);">
+      <div class="context-label" style="color:var(--hex)">Hex</div>
+      <div class="context-stats">217 applicants &nbsp;·&nbsp; 4 open reqs<br>11 reached onsite &nbsp;·&nbsp; 0 offers &nbsp;·&nbsp; 0 hires</div>
+    </div>
+    <div class="context-card" style="border-color:rgba(167,139,250,0.2);">
+      <div class="context-label" style="color:var(--c60)">Full Portfolio (ex. Hex)</div>
+      <div class="context-stats">822 applicants &nbsp;·&nbsp; 55 active reqs<br>47 reached onsite &nbsp;·&nbsp; 9 offers &nbsp;·&nbsp; 3 hires</div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%">Stage</th>
+        <th style="color:var(--hex)">Hex</th>
+        <th style="color:var(--c60)">60-Day Benchmark</th>
+        <th>Gap</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Screen → HM Review</td><td class="hex-val">58%</td><td class="bench-val" style="color:var(--c60)">62%</td><td class="gap-bad">−4pt</td><td><span class="tag tag-ok">On Par</span></td></tr>
+      <tr><td>HM Review → 1st Interview</td><td class="hex-val">49%</td><td class="bench-val" style="color:var(--c60)">66%</td><td class="gap-bad">−17pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr><td>1st Interview → Coding Round</td><td class="hex-val">52%</td><td class="bench-val" style="color:var(--c60)">42%</td><td class="gap-ok">+10pt</td><td><span class="tag tag-strong">Stronger</span></td></tr>
+      <tr><td>Coding Round → Onsite</td><td class="hex-val">34%</td><td class="bench-val" style="color:var(--c60)">40%</td><td class="gap-bad">−6pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr class="crit-row"><td>Onsite → Offer</td><td class="hex-val">0%</td><td class="bench-val" style="color:var(--c60)">19%</td><td class="gap-bad">−19pt</td><td><span class="tag tag-crit">Critical</span></td></tr>
+    </tbody>
+  </table>
+  <div class="divider"></div>
+  <div class="forecast-section-label">Forecast to Offer</div>
+  <div class="target-row">
+    <label>Target offers:</label>
+    <input type="number" id="t60" value="3" min="1" max="20" oninput="syncAndUpdate('60')">
+    <span>MTS roles</span>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label" style="color:var(--c60)">At 60-Day Benchmark Rates</div>
+      <div class="card-num" id="p60-num">—</div>
+      <div class="card-sub" id="p60-sub">—</div>
+    </div>
+    <div class="card hex-card">
+      <div class="card-label" style="color:var(--hex)">At Hex's Current Rates</div>
+      <div class="card-num" id="hex60-num">—</div>
+      <div class="card-sub" id="hex60-sub">—</div>
+    </div>
+  </div>
+  <div class="note" id="note60"></div>
+</div>
+
+<!-- 90 DAY PANEL -->
+<div class="panel" id="panel-90">
+  <div class="bench-label">Comparing <strong style="color:var(--hex)">Hex (60-day)</strong> against <strong style="color:var(--c90)">portfolio last 90 days</strong> &nbsp;·&nbsp; 1,285 applicants → 9 hires</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%">Stage</th>
+        <th style="color:var(--hex)">Hex</th>
+        <th style="color:var(--c90)">90-Day Benchmark</th>
+        <th>Gap</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Screen → HM Review</td><td class="hex-val">58%</td><td class="bench-val" style="color:var(--c90)">60%</td><td class="gap-bad">−2pt</td><td><span class="tag tag-ok">On Par</span></td></tr>
+      <tr><td>HM Review → 1st Interview</td><td class="hex-val">49%</td><td class="bench-val" style="color:var(--c90)">66%</td><td class="gap-bad">−17pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr><td>1st Interview → Coding Round</td><td class="hex-val">52%</td><td class="bench-val" style="color:var(--c90)">42%</td><td class="gap-ok">+10pt</td><td><span class="tag tag-strong">Stronger</span></td></tr>
+      <tr><td>Coding Round → Onsite</td><td class="hex-val">34%</td><td class="bench-val" style="color:var(--c90)">41%</td><td class="gap-bad">−7pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr class="crit-row"><td>Onsite → Offer</td><td class="hex-val">0%</td><td class="bench-val" style="color:var(--c90)">20%</td><td class="gap-bad">−20pt</td><td><span class="tag tag-crit">Critical</span></td></tr>
+    </tbody>
+  </table>
+  <div class="divider"></div>
+  <div class="forecast-section-label">Forecast to Offer</div>
+  <div class="target-row">
+    <label>Target offers:</label>
+    <input type="number" id="t90" value="3" min="1" max="20" oninput="syncAndUpdate('90')">
+    <span>MTS roles</span>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label" style="color:var(--c90)">At 90-Day Benchmark Rates</div>
+      <div class="card-num" id="p90-num">—</div>
+      <div class="card-sub" id="p90-sub">—</div>
+    </div>
+    <div class="card hex-card">
+      <div class="card-label" style="color:var(--hex)">At Hex's Current Rates</div>
+      <div class="card-num" id="hex90-num">—</div>
+      <div class="card-sub" id="hex90-sub">—</div>
+    </div>
+  </div>
+  <div class="note" id="note90"></div>
+</div>
+
+<!-- 2026 PANEL -->
+<div class="panel" id="panel-26">
+  <div class="bench-label">Comparing <strong style="color:var(--hex)">Hex (60-day)</strong> against <strong style="color:var(--c26)">portfolio 2026 YTD</strong> &nbsp;·&nbsp; 1,618 applicants → 14 hires</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%">Stage</th>
+        <th style="color:var(--hex)">Hex</th>
+        <th style="color:var(--c26)">2026 Benchmark</th>
+        <th>Gap</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Screen → HM Review</td><td class="hex-val">58%</td><td class="bench-val" style="color:var(--c26)">59%</td><td class="gap-bad">−1pt</td><td><span class="tag tag-ok">On Par</span></td></tr>
+      <tr><td>HM Review → 1st Interview</td><td class="hex-val">49%</td><td class="bench-val" style="color:var(--c26)">68%</td><td class="gap-bad">−19pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr><td>1st Interview → Coding Round</td><td class="hex-val">52%</td><td class="bench-val" style="color:var(--c26)">42%</td><td class="gap-ok">+10pt</td><td><span class="tag tag-strong">Stronger</span></td></tr>
+      <tr><td>Coding Round → Onsite</td><td class="hex-val">34%</td><td class="bench-val" style="color:var(--c26)">42%</td><td class="gap-bad">−8pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr class="crit-row"><td>Onsite → Offer</td><td class="hex-val">0%</td><td class="bench-val" style="color:var(--c26)">26%</td><td class="gap-bad">−26pt</td><td><span class="tag tag-crit">Critical</span></td></tr>
+    </tbody>
+  </table>
+  <div class="divider"></div>
+  <div class="forecast-section-label">Forecast to Offer</div>
+  <div class="target-row">
+    <label>Target offers:</label>
+    <input type="number" id="t26" value="3" min="1" max="20" oninput="syncAndUpdate('26')">
+    <span>MTS roles</span>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label" style="color:var(--c26)">At 2026 Benchmark Rates</div>
+      <div class="card-num" id="p26-num">—</div>
+      <div class="card-sub" id="p26-sub">—</div>
+    </div>
+    <div class="card hex-card">
+      <div class="card-label" style="color:var(--hex)">At Hex's Current Rates</div>
+      <div class="card-num" id="hex26-num">—</div>
+      <div class="card-sub" id="hex26-sub">—</div>
+    </div>
+  </div>
+  <div class="note" id="note26"></div>
+</div>
+
+<!-- 12 MONTH PANEL -->
+<div class="panel" id="panel-12">
+  <div class="bench-label">Comparing <strong style="color:var(--hex)">Hex (60-day)</strong> against <strong style="color:var(--c12)">portfolio last 12 months</strong> &nbsp;·&nbsp; 3,047 applicants → 37 hires</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%">Stage</th>
+        <th style="color:var(--hex)">Hex</th>
+        <th style="color:var(--c12)">12-Month Benchmark</th>
+        <th>Gap</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Screen → HM Review</td><td class="hex-val">58%</td><td class="bench-val" style="color:var(--c12)">54%</td><td class="gap-ok">+4pt</td><td><span class="tag tag-ok">On Par</span></td></tr>
+      <tr><td>HM Review → 1st Interview</td><td class="hex-val">49%</td><td class="bench-val" style="color:var(--c12)">72%</td><td class="gap-bad">−23pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr><td>1st Interview → Coding Round</td><td class="hex-val">52%</td><td class="bench-val" style="color:var(--c12)">43%</td><td class="gap-ok">+9pt</td><td><span class="tag tag-strong">Stronger</span></td></tr>
+      <tr><td>Coding Round → Onsite</td><td class="hex-val">34%</td><td class="bench-val" style="color:var(--c12)">50%</td><td class="gap-bad">−16pt</td><td><span class="tag tag-warn">Gap</span></td></tr>
+      <tr class="crit-row"><td>Onsite → Offer</td><td class="hex-val">0%</td><td class="bench-val" style="color:var(--c12)">30%</td><td class="gap-bad">−30pt</td><td><span class="tag tag-crit">Critical</span></td></tr>
+    </tbody>
+  </table>
+  <div class="divider"></div>
+  <div class="forecast-section-label">Forecast to Offer</div>
+  <div class="target-row">
+    <label>Target offers:</label>
+    <input type="number" id="t12" value="3" min="1" max="20" oninput="syncAndUpdate('12')">
+    <span>MTS roles</span>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label" style="color:var(--c12)">At 12-Month Benchmark Rates</div>
+      <div class="card-num" id="p12-num">—</div>
+      <div class="card-sub" id="p12-sub">—</div>
+    </div>
+    <div class="card hex-card">
+      <div class="card-label" style="color:var(--hex)">At Hex's Current Rates</div>
+      <div class="card-num" id="hex12-num">—</div>
+      <div class="card-sub" id="hex12-sub">—</div>
+    </div>
+  </div>
+  <div class="note" id="note12"></div>
+</div>
+
+<div class="footer">Paraform · Internal use only · Data window: Feb 23 – Apr 23, 2026</div>
+
+<script>
+  const B = {
+    '60': { screen:0.62, hm:0.66, first:0.42, coding:0.40, onsite:0.19 },
+    '90': { screen:0.60, hm:0.66, first:0.42, coding:0.41, onsite:0.20 },
+    '26': { screen:0.59, hm:0.68, first:0.42, coding:0.42, onsite:0.26 },
+    '12': { screen:0.54, hm:0.72, first:0.43, coding:0.50, onsite:0.30 },
+  };
+  const H = { screen:0.58, hm:0.49, first:0.52, coding:0.34 };
+
+  function ppo(b) { return 1/(b.screen*b.hm*b.first*b.coding*b.onsite); }
+  function hpo(b) { return 1/(H.screen*H.hm*H.first*H.coding*b.onsite); }
+
+  function switchTab(key, el) {
+    document.querySelectorAll('.tab').forEach(t => { t.className = 'tab'; });
+    el.classList.add('active-' + key);
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + key).classList.add('active');
+  }
+
+  function syncAndUpdate(fromKey) {
+    const val = document.getElementById('t' + fromKey).value;
+    ['60','90','26','12'].forEach(k => { document.getElementById('t'+k).value = val; });
+    update();
+  }
+
+  function update() {
+    ['60','90','26','12'].forEach(k => {
+      const t = Math.max(1, parseInt(document.getElementById('t'+k).value)||1);
+      const b = B[k];
+      const pp = ppo(b), hp = hpo(b);
+      const mult = (hp/pp).toFixed(1);
+
+      document.getElementById('p'+k+'-num').textContent = Math.round(pp*t).toLocaleString();
+      document.getElementById('p'+k+'-sub').textContent = `~${Math.round(pp)} per offer`;
+      document.getElementById('hex'+k+'-num').textContent = Math.round(hp*t).toLocaleString();
+      document.getElementById('hex'+k+'-sub').textContent = `~${Math.round(hp)} per offer · ${mult}x benchmark`;
+      document.getElementById('note'+k).innerHTML = `At Hex's current conversion rates, <strong>${mult}x more applicants</strong> are needed per offer vs. this benchmark. Closing the HM Review → 1st Interview gap alone would be the single highest-leverage fix.`;
+    });
+  }
+
+  update();
+</script>
+</body>
+</html>
