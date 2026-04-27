@@ -80,11 +80,6 @@
   .panel.active { display: block; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-  .context-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-  .context-card { border-radius: 8px; padding: 12px 14px; border: 1px solid var(--border); background: var(--surface); }
-  .context-label { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px; }
-  .context-stats { font-size: 11px; color: var(--text-secondary); line-height: 1.7; }
-
   .bench-label {
     font-size: 12px;
     color: var(--text-secondary);
@@ -154,16 +149,6 @@
 <!-- 60 DAY PANEL -->
 <div class="panel active" id="panel-60">
   <div class="bench-label">Comparing <strong style="color:var(--hex)">Hex (60-day)</strong> against <strong style="color:var(--c60)">full portfolio — exact same 60-day window</strong> · Feb 23 – Apr 23, 2026 · Apples-to-apples</div>
-  <div class="context-row">
-    <div class="context-card" style="border-color:rgba(255,77,77,0.2);">
-      <div class="context-label" style="color:var(--hex)">Hex</div>
-      <div class="context-stats">217 applicants &nbsp;·&nbsp; 4 open reqs<br>11 reached onsite &nbsp;·&nbsp; 0 offers &nbsp;·&nbsp; 0 hires</div>
-    </div>
-    <div class="context-card" style="border-color:rgba(167,139,250,0.2);">
-      <div class="context-label" style="color:var(--c60)">Full Portfolio (ex. Hex)</div>
-      <div class="context-stats">822 applicants &nbsp;·&nbsp; 55 active reqs<br>47 reached onsite &nbsp;·&nbsp; 9 offers &nbsp;·&nbsp; 3 hires</div>
-    </div>
-  </div>
   <table>
     <thead>
       <tr>
